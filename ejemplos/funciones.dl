@@ -1,0 +1,46 @@
+(* Definicion y composicion de funciones *)
+
+defn cuadrado :: Num -> Num
+  | n => n ^ 2.0
+fin
+
+defn cubo :: Num -> Num
+  | n => n ^ 3.0
+fin
+
+defn suma_cuadrados :: Num -> Num -> Num
+  | a, b => cuadrado(a) + cuadrado(b)
+fin
+
+defn distancia :: Num -> Num -> Num -> Num -> Num
+  | x1, y1, x2, y2 => raiz(cuadrado(x2 - x1) + cuadrado(y2 - y1))
+fin
+
+defn factorial :: Num -> Num
+  | n => n * cubo(n - 1.0)
+fin
+
+mostrar(cuadrado(7.0))
+mostrar(cubo(4.0))
+mostrar(suma_cuadrados(3.0, 4.0))
+mostrar(distancia(0.0, 0.0, 3.0, 4.0))
+
+(* Uso de constantes dentro de funciones *)
+defn circunferencia :: Num -> Num
+  | r => 2.0 * 3.141592653589793 * r
+fin
+
+defn area_circulo :: Num -> Num
+  | r => 3.141592653589793 * r ^ 2.0
+fin
+
+mostrar(circunferencia(5.0))
+mostrar(area_circulo(3.0))
+
+(* Composicion manual de funciones *)
+defn normalizar :: Num -> Num -> Num -> Num
+  | valor, minimo, maximo => (valor - minimo) / (maximo - minimo)
+fin
+
+mostrar(normalizar(5.0, 0.0, 10.0))
+mostrar(normalizar(75.0, 0.0, 100.0))

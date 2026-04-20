@@ -1,0 +1,7 @@
+__pycache__/
+*.py[cod]
+antlr4.jar
+*.tokens
+*.interp
+generated/DeepLang*.py
+!generated/__init__.py
