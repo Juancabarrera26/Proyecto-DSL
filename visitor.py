@@ -4,87 +4,100 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'generated'))
 
 from generated.DeepLangVisitor import DeepLangVisitor
-from generated.DeepLangParser  import DeepLangParser
-from entorno    import Entorno
+from entorno import Entorno
 import matematica as mat
-import matrices   as mx
+import matrices as mx
 
 
 class FuncionUsuario:
     def __init__(self, parametros, cuerpo, entorno_closure):
-        self.parametros       = parametros
-        self.cuerpo           = cuerpo
-        self.entorno_closure  = entorno_closure
+        self.parametros = parametros
+        self.cuerpo = cuerpo
+        self.entorno_closure = entorno_closure
 
 
 class EjecutorDeepLang(DeepLangVisitor):
 
     def __init__(self):
         self.entorno = Entorno()
-        self._registrar_builtins()
+        self.modulos_importados = set()
 
-    def _registrar_builtins(self):
-        builtins = {
-            'mostrar'    : lambda args: print(self._fmt(args[0])),
-            'sen'        : lambda args: mat.seno(args[0]),
-            'cos'        : lambda args: mat.coseno(args[0]),
-            'tan'        : lambda args: mat.tangente(args[0]),
-            'raiz'       : lambda args: mat.raiz(args[0]),
-            'raizn'      : lambda args: mat.raiz(args[0], int(args[1])),
-            'abs'        : lambda args: mat.valor_absoluto(args[0]),
-            'exp'        : lambda args: mat.exponencial(args[0]),
-            'ln'         : lambda args: mat.logaritmo_natural(args[0]),
-            'trans'      : lambda args: mx.transpuesta(args[0]),
-            'inv'        : lambda args: mx.inversa(args[0]),
-            'mostrar_mat': lambda args: mx.mostrar_mat(args[0]),
-            'dim'        : lambda args: list(mx.dimensiones(args[0])),
+        self.modulos = {
+            "core": {
+                'mostrar': lambda args: print(self._fmt(args[0])),
+                'sen': lambda args: mat.seno(args[0]),
+                'cos': lambda args: mat.coseno(args[0]),
+                'tan': lambda args: mat.tangente(args[0]),
+                'raiz': lambda args: mat.raiz(args[0]),
+                'raizn': lambda args: mat.raiz(args[0], int(args[1])),
+                'abs': lambda args: mat.valor_absoluto(args[0]),
+                'exp': lambda args: mat.exponencial(args[0]),
+                'ln': lambda args: mat.logaritmo_natural(args[0]),
+            },
+            "linalg": {
+                'trans': lambda args: mx.transpuesta(args[0]),
+                'inv': lambda args: mx.inversa(args[0]),
+                'mostrar_mat': lambda args: mx.mostrar_mat(args[0]),
+                'dim': lambda args: list(mx.dimensiones(args[0])),
+            }
         }
-        for nombre, fn in builtins.items():
-            self.entorno.definir(nombre, fn)
 
-    def _fmt(self, valor):
-        if isinstance(valor, list):
-            return str(valor)
-        if isinstance(valor, float) and valor == int(valor):
-            return str(int(valor))
-        return str(valor)
+    # IMPORTS
 
-    # programa
+    def visitImportarStmt(self, ctx):
+        nombre = ctx.ID(0).getText()
+        alias = ctx.ID(1).getText() if len(ctx.ID()) > 1 else nombre
 
-    def visitPrograma(self, ctx):
-        resultado = None
-        for instr in ctx.instruccion():
-            resultado = self.visit(instr)
-        return resultado
+        if alias in self.modulos_importados:
+            raise RuntimeError(f"Modulo '{alias}' ya fue importado")
 
-    def visitInstruccion(self, ctx):
-        return self.visitChildren(ctx)
+        if nombre not in self.modulos:
+            raise RuntimeError(f"Modulo '{nombre}' no existe")
 
-    # declaraciones
+        self.modulos_importados.add(alias)
 
-    def visitDeclaracion(self, ctx):
-        nombre = ctx.ID().getText()
-        valor  = self.visit(ctx.expresion())
-        self.entorno.definir(nombre, valor)
-        return valor
+        # guardar módulo como objeto
+        self.entorno.definir(alias, self.modulos[nombre])
 
-    # funciones
+    def visitFromImportStmt(self, ctx):
+        modulo = ctx.ID().getText()
 
-    def visitDefFuncion(self, ctx):
-        nombre = ctx.ID().getText()
-        params = [p.getText() for p in ctx.parametros().ID()]
-        cuerpo = ctx.expresion()
-        fn     = FuncionUsuario(params, cuerpo, self.entorno)
-        self.entorno.definir(nombre, fn)
-        return fn
+        if modulo not in self.modulos:
+            raise RuntimeError(f"Modulo '{modulo}' no existe")
 
-    def visitExpLlamada(self, ctx):
-        return self.visitLlamadaFuncion(ctx.llamadaFuncion())
+        for fn_token in ctx.listaImport().ID():
+            fn = fn_token.getText()
+
+            if fn not in self.modulos[modulo]:
+                raise RuntimeError(f"'{fn}' no existe en '{modulo}'")
+
+            if fn in self.entorno._tabla:
+                raise RuntimeError(f"Conflicto: '{fn}' ya existe")
+
+            self.entorno.definir(fn, self.modulos[modulo][fn])
+
+    # ACCESO MODULO c.sen
+
+    def visitAccesoModuloExpr(self, ctx):
+        modulo = ctx.ID(0).getText()
+        funcion = ctx.ID(1).getText()
+
+        mod = self.entorno.obtener(modulo)
+
+        if not isinstance(mod, dict):
+            raise RuntimeError(f"'{modulo}' no es un modulo")
+
+        if funcion not in mod:
+            raise RuntimeError(f"'{funcion}' no existe en '{modulo}'")
+
+        return mod[funcion]
+
+    # LLAMADAS
 
     def visitLlamadaFuncion(self, ctx):
-        nombre = ctx.ID().getText()
-        fn     = self.entorno.obtener(nombre)
-        args   = []
+        fn = self.visit(ctx.getChild(0))
+
+        args = []
         if ctx.argumentos():
             args = [self.visit(e) for e in ctx.argumentos().expresion()]
 
@@ -92,23 +105,27 @@ class EjecutorDeepLang(DeepLangVisitor):
             return fn(args)
 
         if isinstance(fn, FuncionUsuario):
-            if len(args) != len(fn.parametros):
-                raise RuntimeError(
-                    f"'{nombre}' espera {len(fn.parametros)} argumentos, "
-                    f"recibio {len(args)}"
-                )
             nuevo_env = fn.entorno_closure.nuevo_ambito()
             for p, v in zip(fn.parametros, args):
                 nuevo_env.definir(p, v)
-            env_anterior   = self.entorno
-            self.entorno   = nuevo_env
-            resultado      = self.visit(fn.cuerpo)
-            self.entorno   = env_anterior
+
+            env_anterior = self.entorno
+            self.entorno = nuevo_env
+            resultado = self.visit(fn.cuerpo)
+            self.entorno = env_anterior
             return resultado
 
-        raise RuntimeError(f"'{nombre}' no es una funcion")
+        raise RuntimeError("No es una funcion")
 
-    # aritmetica
+    # DECLARACIONES
+
+    def visitDeclaracion(self, ctx):
+        nombre = ctx.ID().getText()
+        valor = self.visit(ctx.expresion())
+        self.entorno.definir(nombre, valor)
+        return valor
+
+    # EXPRESIONES
 
     def visitExpSuma(self, ctx):
         return self.visit(ctx.expresionAdd()) + self.visit(ctx.expresionMult())
@@ -129,94 +146,19 @@ class EjecutorDeepLang(DeepLangVisitor):
         return self.visit(ctx.expresionMult()) % self.visit(ctx.expresionPot())
 
     def visitExpPot(self, ctx):
-        base = self.visit(ctx.expresionUnaria())
-        exp  = self.visit(ctx.expresionPot())
-        return mat.potencia(base, exp)
-
-    def visitExpNeg(self, ctx):
-        return -self.visit(ctx.expresionPrimaria())
-
-    def visitExpNo(self, ctx):
-        return not self.visit(ctx.expresionPrimaria())
-
-    # matrices
-
-    def visitExpMatSuma(self, ctx):
-        return mx.suma_mat(
-            self.visit(ctx.expresionAdd()),
-            self.visit(ctx.expresionMult())
-        )
-
-    def visitExpMatResta(self, ctx):
-        return mx.resta_mat(
-            self.visit(ctx.expresionAdd()),
-            self.visit(ctx.expresionMult())
-        )
-
-    def visitExpMatMult(self, ctx):
-        return mx.mult_mat(
-            self.visit(ctx.expresionMult()),
+        return mat.potencia(
+            self.visit(ctx.expresionUnaria()),
             self.visit(ctx.expresionPot())
         )
 
-    # comparaciones y logica
-
-    def visitExpComp(self, ctx):
-        izq = self.visit(ctx.expresionComp())
-        der = self.visit(ctx.expresionAdd())
-        op  = ctx.opComp().getText()
-        tabla = {
-            '==': lambda a, b: a == b,
-            '!=': lambda a, b: a != b,
-            '<' : lambda a, b: a <  b,
-            '>' : lambda a, b: a >  b,
-            '<=': lambda a, b: a <= b,
-            '>=': lambda a, b: a >= b,
-        }
-        return tabla[op](izq, der)
-
-    def visitExpOr(self, ctx):
-        return self.visit(ctx.expresion()) or self.visit(ctx.expresionAnd())
-
-    def visitExpAnd(self, ctx):
-        return self.visit(ctx.expresionAnd()) and self.visit(ctx.expresionComp())
-
-    # literales
+    # LITERALES
 
     def visitLitNum(self, ctx):
         return float(ctx.NUM().getText())
 
-    def visitLitTexto(self, ctx):
-        return ctx.TEXTO().getText()[1:-1]
-
-    def visitLitVerdad(self, ctx):
-        return True
-
-    def visitLitFalso(self, ctx):
-        return False
-
     def visitVarId(self, ctx):
         return self.entorno.obtener(ctx.ID().getText())
 
-    def visitExpAgrup(self, ctx):
-        return self.visit(ctx.expresion())
-
-    def visitLitMat(self, ctx):
-        return self.visit(ctx.matriz())
-
-    def visitMatriz(self, ctx):
-        return [self.visit(f) for f in ctx.fila()]
-
-    def visitFila(self, ctx):
-        return [self.visit(e) for e in ctx.expresion()]
-
-    # pases de precedencia
-
-    def visitExpAndPass(self, ctx):  return self.visitChildren(ctx)
-    def visitExpCompPass(self, ctx): return self.visitChildren(ctx)
-    def visitExpAddPass(self, ctx):  return self.visitChildren(ctx)
-    def visitExpMultPass(self, ctx): return self.visitChildren(ctx)
-    def visitExpPotPass(self, ctx):  return self.visitChildren(ctx)
-    def visitExpUnPass(self, ctx):   return self.visitChildren(ctx)
-    def visitExpPrimPass(self, ctx): return self.visitChildren(ctx)
-    def visitExpresionStmt(self, ctx): return self.visitChildren(ctx)
+    def visitPrograma(self, ctx):
+        for instr in ctx.instruccion():
+            self.visit(instr)
