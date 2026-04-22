@@ -8,6 +8,20 @@ instruccion
     : declaracion
     | expresionStmt
     | defFuncion
+    | importarStmt
+    | fromImportStmt
+    ;
+
+importarStmt
+    : IMPORTAR ID (COMO ID)?
+    ;
+
+fromImportStmt
+    : FROM ID IMPORT listaImport
+    ;
+
+listaImport
+    : ID (COMA ID)*
     ;
 
 declaracion
@@ -87,9 +101,14 @@ expresionPrimaria
     | VERDAD                               # litVerdad
     | FALSO                                # litFalso
     | ID                                   # varId
+    | accesoModulo                         # accesoModuloExpr
     | matriz                               # litMat
     | llamadaFuncion                       # expLlamada
     | LPAREN expresion RPAREN              # expAgrup
+    ;
+
+accesoModulo
+    : ID DOT ID
     ;
 
 matriz
@@ -101,7 +120,7 @@ fila
     ;
 
 llamadaFuncion
-    : ID LPAREN argumentos? RPAREN
+    : (ID | accesoModulo) LPAREN argumentos? RPAREN
     ;
 
 argumentos
@@ -112,54 +131,59 @@ opComp
     : EQEQ | NEQ | LT | GT | LEQ | GEQ
     ;
 
-LET       : 'sea'     ;
-DEFN      : 'defn'    ;
-FIN       : 'fin'     ;
-PIPE      : '|'       ;
-FLECHA    : '=>'      ;
-RARROW    : '->'      ;
-DOBLESDOS : '::'      ;
-ASIG      : '='       ;
-COMA      : ','       ;
+IMPORTAR : 'importar';
+COMO     : 'como';
+FROM     : 'from';
+IMPORT   : 'import';
+DOT      : '.';
 
-TNUM      : 'Num'     ;
-TTEXTO    : 'Texto'   ;
-TBOOL     : 'Bool'    ;
-TMAT      : 'Mat'     ;
+LET       : 'sea';
+DEFN      : 'defn';
+FIN       : 'fin';
+PIPE      : '|';
+FLECHA    : '=>';
+RARROW    : '->';
+DOBLESDOS : '::';
+ASIG      : '=';
 
-VERDAD    : 'verdad'  ;
-FALSO     : 'falso'   ;
+TNUM      : 'Num';
+TTEXTO    : 'Texto';
+TBOOL     : 'Bool';
+TMAT      : 'Mat';
 
-OROP      : 'o'       ;
-ANDOP     : 'y'       ;
-NO        : 'no'      ;
+VERDAD    : 'verdad';
+FALSO     : 'falso';
 
-PLUS      : '+'       ;
-MINUS     : '-'       ;
-TIMES     : '*'       ;
-DIV       : '/'       ;
-MOD       : '%'       ;
-POW       : '^'       ;
+OROP      : 'o';
+ANDOP     : 'y';
+NO        : 'no';
 
-MATADD    : '|+|'     ;
-MATSUB    : '|-|'     ;
-MATMUL    : '|*|'     ;
+PLUS      : '+';
+MINUS     : '-';
+TIMES     : '*';
+DIV       : '/';
+MOD       : '%';
+POW       : '^';
 
-EQEQ      : '=='      ;
-NEQ       : '!='      ;
-LT        : '<'       ;
-GT        : '>'       ;
-LEQ       : '<='      ;
-GEQ       : '>='      ;
+MATADD    : '|+|';
+MATSUB    : '|-|';
+MATMUL    : '|*|';
 
-LPAREN    : '('       ;
-RPAREN    : ')'       ;
-LBRAC     : '['       ;
-RBRAC     : ']'       ;
+EQEQ      : '==';
+NEQ       : '!=';
+LT        : '<';
+GT        : '>';
+LEQ       : '<=';
+GEQ       : '>=';
 
-NUM       : [0-9]+ ('.' [0-9]+)?  ;
-TEXTO     : '"' (~["\r\n])* '"'   ;
-ID        : [a-zA-Z_][a-zA-Z0-9_]* ;
+LPAREN    : '(';
+RPAREN    : ')';
+LBRAC     : '[';
+RBRAC     : ']';
 
-COMENTARIO : '(*' .*? '*)' -> skip ;
-WS         : [ \t\r\n]+    -> skip ;
+NUM       : [0-9]+ ('.' [0-9]+)?;
+TEXTO     : '"' (~["\r\n])* '"';
+ID        : [a-zA-Z_][a-zA-Z0-9_]*;
+
+COMENTARIO : '(*' .*? '*)' -> skip;
+WS         : [ \t\r\n]+ -> skip;
