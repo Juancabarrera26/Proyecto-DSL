@@ -22,6 +22,10 @@ class EjecutorDeepLang(DeepLangVisitor):
         self.entorno = Entorno()
         self.modulos_importados = set()
 
+        # =========================
+        # MODULOS DEL DSL
+        # =========================
+
         self.modulos = {
             "core": {
                 'mostrar': lambda args: print(self._fmt(args[0])),
@@ -33,7 +37,12 @@ class EjecutorDeepLang(DeepLangVisitor):
                 'abs': lambda args: mat.valor_absoluto(args[0]),
                 'exp': lambda args: mat.exponencial(args[0]),
                 'ln': lambda args: mat.logaritmo_natural(args[0]),
+
+                # 🔥 NUEVO
+                'linreg': lambda args: mat.regresion_lineal(args[0], args[1]),
+                'predict': lambda args: mat.predecir(args[0], args[1]),
             },
+
             "linalg": {
                 'trans': lambda args: mx.transpuesta(args[0]),
                 'inv': lambda args: mx.inversa(args[0]),
@@ -42,7 +51,9 @@ class EjecutorDeepLang(DeepLangVisitor):
             }
         }
 
+    # =========================
     # IMPORTS
+    # =========================
 
     def visitImportarStmt(self, ctx):
         nombre = ctx.ID(0).getText()
@@ -56,7 +67,7 @@ class EjecutorDeepLang(DeepLangVisitor):
 
         self.modulos_importados.add(alias)
 
-        # guardar módulo como objeto
+        # guardar modulo como objeto
         self.entorno.definir(alias, self.modulos[nombre])
 
     def visitFromImportStmt(self, ctx):
@@ -76,7 +87,9 @@ class EjecutorDeepLang(DeepLangVisitor):
 
             self.entorno.definir(fn, self.modulos[modulo][fn])
 
-    # ACCESO MODULO c.sen
+    # =========================
+    # ACCESO MODULO (c.sen)
+    # =========================
 
     def visitAccesoModuloExpr(self, ctx):
         modulo = ctx.ID(0).getText()
@@ -92,7 +105,9 @@ class EjecutorDeepLang(DeepLangVisitor):
 
         return mod[funcion]
 
+    # =========================
     # LLAMADAS
+    # =========================
 
     def visitLlamadaFuncion(self, ctx):
         fn = self.visit(ctx.getChild(0))
@@ -105,6 +120,12 @@ class EjecutorDeepLang(DeepLangVisitor):
             return fn(args)
 
         if isinstance(fn, FuncionUsuario):
+            if len(args) != len(fn.parametros):
+                raise RuntimeError(
+                    f"Funcion espera {len(fn.parametros)} argumentos, "
+                    f"recibio {len(args)}"
+                )
+
             nuevo_env = fn.entorno_closure.nuevo_ambito()
             for p, v in zip(fn.parametros, args):
                 nuevo_env.definir(p, v)
@@ -117,7 +138,22 @@ class EjecutorDeepLang(DeepLangVisitor):
 
         raise RuntimeError("No es una funcion")
 
+    # =========================
+    # PROGRAMA
+    # =========================
+
+    def visitPrograma(self, ctx):
+        resultado = None
+        for instr in ctx.instruccion():
+            resultado = self.visit(instr)
+        return resultado
+
+    def visitInstruccion(self, ctx):
+        return self.visitChildren(ctx)
+
+    # =========================
     # DECLARACIONES
+    # =========================
 
     def visitDeclaracion(self, ctx):
         nombre = ctx.ID().getText()
@@ -125,7 +161,9 @@ class EjecutorDeepLang(DeepLangVisitor):
         self.entorno.definir(nombre, valor)
         return valor
 
+    # =========================
     # EXPRESIONES
+    # =========================
 
     def visitExpSuma(self, ctx):
         return self.visit(ctx.expresionAdd()) + self.visit(ctx.expresionMult())
@@ -151,7 +189,15 @@ class EjecutorDeepLang(DeepLangVisitor):
             self.visit(ctx.expresionPot())
         )
 
+    def visitExpNeg(self, ctx):
+        return -self.visit(ctx.expresionPrimaria())
+
+    def visitExpNo(self, ctx):
+        return not self.visit(ctx.expresionPrimaria())
+
+    # =========================
     # LITERALES
+    # =========================
 
     def visitLitNum(self, ctx):
         return float(ctx.NUM().getText())
@@ -159,6 +205,25 @@ class EjecutorDeepLang(DeepLangVisitor):
     def visitVarId(self, ctx):
         return self.entorno.obtener(ctx.ID().getText())
 
-    def visitPrograma(self, ctx):
-        for instr in ctx.instruccion():
-            self.visit(instr)
+    def visitLitMat(self, ctx):
+        return self.visit(ctx.matriz())
+
+    def visitMatriz(self, ctx):
+        return [self.visit(f) for f in ctx.fila()]
+
+    def visitFila(self, ctx):
+        return [self.visit(e) for e in ctx.expresion()]
+
+    def visitExpAgrup(self, ctx):
+        return self.visit(ctx.expresion())
+
+    # =========================
+    # FORMATO
+    # =========================
+
+    def _fmt(self, valor):
+        if isinstance(valor, list):
+            return str(valor)
+        if isinstance(valor, float) and valor == int(valor):
+            return str(int(valor))
+        return str(valor)
