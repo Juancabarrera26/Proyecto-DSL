@@ -22,9 +22,7 @@ class EjecutorDeepLang(DeepLangVisitor):
         self.entorno = Entorno()
         self.modulos_importados = set()
 
-        # =========================
         # MODULOS DEL DSL
-        # =========================
 
         self.modulos = {
             "core": {
@@ -51,9 +49,7 @@ class EjecutorDeepLang(DeepLangVisitor):
             }
         }
 
-    # =========================
     # IMPORTS
-    # =========================
 
     def visitImportarStmt(self, ctx):
         nombre = ctx.ID(0).getText()
@@ -87,9 +83,7 @@ class EjecutorDeepLang(DeepLangVisitor):
 
             self.entorno.definir(fn, self.modulos[modulo][fn])
 
-    # =========================
     # ACCESO MODULO (c.sen)
-    # =========================
 
     def visitAccesoModuloExpr(self, ctx):
         modulo = ctx.ID(0).getText()
@@ -105,9 +99,7 @@ class EjecutorDeepLang(DeepLangVisitor):
 
         return mod[funcion]
 
-    # =========================
     # LLAMADAS
-    # =========================
 
     def visitLlamadaFuncion(self, ctx):
         fn = self.visit(ctx.getChild(0))
@@ -138,9 +130,7 @@ class EjecutorDeepLang(DeepLangVisitor):
 
         raise RuntimeError("No es una funcion")
 
-    # =========================
     # PROGRAMA
-    # =========================
 
     def visitPrograma(self, ctx):
         resultado = None
@@ -151,9 +141,7 @@ class EjecutorDeepLang(DeepLangVisitor):
     def visitInstruccion(self, ctx):
         return self.visitChildren(ctx)
 
-    # =========================
     # DECLARACIONES
-    # =========================
 
     def visitDeclaracion(self, ctx):
         nombre = ctx.ID().getText()
@@ -161,9 +149,7 @@ class EjecutorDeepLang(DeepLangVisitor):
         self.entorno.definir(nombre, valor)
         return valor
 
-    # =========================
     # EXPRESIONES
-    # =========================
 
     def visitExpSuma(self, ctx):
         return self.visit(ctx.expresionAdd()) + self.visit(ctx.expresionMult())
@@ -195,9 +181,7 @@ class EjecutorDeepLang(DeepLangVisitor):
     def visitExpNo(self, ctx):
         return not self.visit(ctx.expresionPrimaria())
 
-    # =========================
     # LITERALES
-    # =========================
 
     def visitLitNum(self, ctx):
         return float(ctx.NUM().getText())
@@ -217,9 +201,7 @@ class EjecutorDeepLang(DeepLangVisitor):
     def visitExpAgrup(self, ctx):
         return self.visit(ctx.expresion())
 
-    # =========================
     # FORMATO
-    # =========================
 
     def _fmt(self, valor):
         if isinstance(valor, list):
