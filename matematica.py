@@ -101,3 +101,29 @@ def tangente(x):
     if valor_absoluto(c) < 1e-10:
         raise ValueError("tan(x) no esta definida en este punto")
     return seno(x) / c
+
+def regresion_lineal(X, Y):
+    if len(X) != len(Y):
+        raise ValueError("X y Y deben tener el mismo tamaño")
+
+    n = len(X)
+
+    sum_x = sum(X)
+    sum_y = sum(Y)
+
+    sum_xy = 0.0
+    sum_x2 = 0.0
+
+    for i in range(n):
+        sum_xy += X[i] * Y[i]
+        sum_x2 += X[i] * X[i]
+
+    denominador = n * sum_x2 - (sum_x * sum_x)
+
+    if denominador == 0:
+        raise ValueError("No se puede calcular regresion (division por cero)")
+
+    m = (n * sum_xy - sum_x * sum_y) / denominador
+    b = (sum_y - m * sum_x) / n
+
+    return [m, b]
