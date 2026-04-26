@@ -22,8 +22,6 @@ class EjecutorDeepLang(DeepLangVisitor):
         self.entorno = Entorno()
         self.modulos_importados = set()
 
-        # MODULOS DEL DSL
-
         self.modulos = {
             "core": {
                 'mostrar': lambda args: print(self._fmt(args[0])),
@@ -35,12 +33,9 @@ class EjecutorDeepLang(DeepLangVisitor):
                 'abs': lambda args: mat.valor_absoluto(args[0]),
                 'exp': lambda args: mat.exponencial(args[0]),
                 'ln': lambda args: mat.logaritmo_natural(args[0]),
-
-                # 🔥 NUEVO
                 'linreg': lambda args: mat.regresion_lineal(args[0], args[1]),
                 'predict': lambda args: mat.predecir(args[0], args[1]),
             },
-
             "linalg": {
                 'trans': lambda args: mx.transpuesta(args[0]),
                 'inv': lambda args: mx.inversa(args[0]),
@@ -62,8 +57,6 @@ class EjecutorDeepLang(DeepLangVisitor):
             raise RuntimeError(f"Modulo '{nombre}' no existe")
 
         self.modulos_importados.add(alias)
-
-        # guardar modulo como objeto
         self.entorno.definir(alias, self.modulos[nombre])
 
     def visitFromImportStmt(self, ctx):
@@ -72,16 +65,18 @@ class EjecutorDeepLang(DeepLangVisitor):
         if modulo not in self.modulos:
             raise RuntimeError(f"Modulo '{modulo}' no existe")
 
+        funciones = self.modulos[modulo]
+
         for fn_token in ctx.listaImport().ID():
             fn = fn_token.getText()
 
-            if fn not in self.modulos[modulo]:
+            if fn not in funciones:
                 raise RuntimeError(f"'{fn}' no existe en '{modulo}'")
 
             if fn in self.entorno._tabla:
                 raise RuntimeError(f"Conflicto: '{fn}' ya existe")
 
-            self.entorno.definir(fn, self.modulos[modulo][fn])
+            self.entorno.definir(fn, funciones[fn])
 
     # ACCESO MODULO (c.sen)
 
@@ -129,7 +124,7 @@ class EjecutorDeepLang(DeepLangVisitor):
             return resultado
 
         raise RuntimeError("No es una funcion")
-
+        
     # PROGRAMA
 
     def visitPrograma(self, ctx):
@@ -140,7 +135,7 @@ class EjecutorDeepLang(DeepLangVisitor):
 
     def visitInstruccion(self, ctx):
         return self.visitChildren(ctx)
-
+        
     # DECLARACIONES
 
     def visitDeclaracion(self, ctx):
@@ -149,7 +144,7 @@ class EjecutorDeepLang(DeepLangVisitor):
         self.entorno.definir(nombre, valor)
         return valor
 
-    # EXPRESIONES
+    # ARITMETICA
 
     def visitExpSuma(self, ctx):
         return self.visit(ctx.expresionAdd()) + self.visit(ctx.expresionMult())
@@ -181,10 +176,63 @@ class EjecutorDeepLang(DeepLangVisitor):
     def visitExpNo(self, ctx):
         return not self.visit(ctx.expresionPrimaria())
 
+    # MATRICES
+
+    def visitExpMatSuma(self, ctx):
+        return mx.suma_mat(
+            self.visit(ctx.expresionAdd()),
+            self.visit(ctx.expresionMult())
+        )
+
+    def visitExpMatResta(self, ctx):
+        return mx.resta_mat(
+            self.visit(ctx.expresionAdd()),
+            self.visit(ctx.expresionMult())
+        )
+
+    def visitExpMatMult(self, ctx):
+        return mx.mult_mat(
+            self.visit(ctx.expresionMult()),
+            self.visit(ctx.expresionPot())
+        )
+        
+    # COMPARACIONES
+
+    def visitExpComp(self, ctx):
+        izq = self.visit(ctx.expresionComp())
+        der = self.visit(ctx.expresionAdd())
+        op  = ctx.opComp().getText()
+
+        tabla = {
+            '==': lambda a, b: a == b,
+            '!=': lambda a, b: a != b,
+            '<' : lambda a, b: a <  b,
+            '>' : lambda a, b: a >  b,
+            '<=': lambda a, b: a <= b,
+            '>=': lambda a, b: a >= b,
+        }
+
+        return tabla[op](izq, der)
+
+    def visitExpOr(self, ctx):
+        return self.visit(ctx.expresion()) or self.visit(ctx.expresionAnd())
+
+    def visitExpAnd(self, ctx):
+        return self.visit(ctx.expresionAnd()) and self.visit(ctx.expresionComp())
+
     # LITERALES
 
     def visitLitNum(self, ctx):
         return float(ctx.NUM().getText())
+
+    def visitLitTexto(self, ctx):
+        return ctx.TEXTO().getText()[1:-1]
+
+    def visitLitVerdad(self, ctx):
+        return True
+
+    def visitLitFalso(self, ctx):
+        return False
 
     def visitVarId(self, ctx):
         return self.entorno.obtener(ctx.ID().getText())
