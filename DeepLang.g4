@@ -54,57 +54,56 @@ expresionStmt
     ;
 
 expresion
-    : expresion OROP expresionAnd          # expOr
-    | expresionAnd                         # expAndPass
+    : expresion OROP expresionAnd
+    | expresionAnd
     ;
 
 expresionAnd
-    : expresionAnd ANDOP expresionComp     # expAnd
-    | expresionComp                        # expCompPass
+    : expresionAnd ANDOP expresionComp
+    | expresionComp
     ;
 
 expresionComp
-    : expresionComp opComp expresionAdd    # expComp
-    | expresionAdd                         # expAddPass
+    : expresionComp opComp expresionAdd
+    | expresionAdd
     ;
 
 expresionAdd
-    : expresionAdd PLUS  expresionMult     # expSuma
-    | expresionAdd MINUS expresionMult     # expResta
-    | expresionAdd MATADD expresionMult    # expMatSuma
-    | expresionAdd MATSUB expresionMult    # expMatResta
-    | expresionMult                        # expMultPass
+    : expresionAdd PLUS expresionMult
+    | expresionAdd MINUS expresionMult
+    | expresionAdd MATADD expresionMult
+    | expresionAdd MATSUB expresionMult
+    | expresionMult
     ;
 
 expresionMult
-    : expresionMult TIMES  expresionPot    # expMult
-    | expresionMult DIV    expresionPot    # expDiv
-    | expresionMult MOD    expresionPot    # expMod
-    | expresionMult MATMUL expresionPot    # expMatMult
-    | expresionPot                         # expPotPass
+    : expresionMult TIMES expresionPot
+    | expresionMult DIV expresionPot
+    | expresionMult MATMUL expresionPot
+    | expresionPot
     ;
 
 expresionPot
-    : expresionUnaria POW expresionPot     # expPot
-    | expresionUnaria                      # expUnPass
+    : expresionUnaria POW expresionPot
+    | expresionUnaria
     ;
 
 expresionUnaria
-    : MINUS expresionPrimaria              # expNeg
-    | NO    expresionPrimaria              # expNo
-    | expresionPrimaria                    # expPrimPass
+    : MINUS expresionPrimaria
+    | NO expresionPrimaria
+    | expresionPrimaria
     ;
 
 expresionPrimaria
-    : NUM                                  # litNum
-    | TEXTO                                # litTexto
-    | VERDAD                               # litVerdad
-    | FALSO                                # litFalso
-    | ID                                   # varId
-    | accesoModulo                         # accesoModuloExpr
-    | matriz                               # litMat
-    | llamadaFuncion                       # expLlamada
-    | LPAREN expresion RPAREN              # expAgrup
+    : NUM
+    | TEXTO
+    | VERDAD
+    | FALSO
+    | ID
+    | accesoModulo
+    | matriz
+    | llamadaFuncion
+    | LPAREN expresion RPAREN
     ;
 
 accesoModulo
@@ -162,7 +161,6 @@ PLUS      : '+';
 MINUS     : '-';
 TIMES     : '*';
 DIV       : '/';
-MOD       : '%';
 POW       : '^';
 
 MATADD    : '|+|';
@@ -185,5 +183,4 @@ NUM       : [0-9]+ ('.' [0-9]+)?;
 TEXTO     : '"' (~["\r\n])* '"';
 ID        : [a-zA-Z_][a-zA-Z0-9_]*;
 
-COMENTARIO : '(*' .*? '*)' -> skip;
-WS         : [ \t\r\n]+ -> skip;
+WS : [ \t\r\n]+ -> skip;
