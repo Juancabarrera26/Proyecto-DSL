@@ -1,0 +1,4 @@
+importar core como c
+
+sea x = c.sen(0.5)
+mostrar(x)
