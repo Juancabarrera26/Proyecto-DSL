@@ -1,16 +1,7 @@
-(* Operaciones con matrices 2x2 *)
+importar linalg
 
-sea A :: Mat = [[1.0, 2.0], [3.0, 4.0]]
-sea B :: Mat = [[5.0, 6.0], [7.0, 8.0]]
+sea A :: Mat = [[1,2],[3,4]]
 
-mostrar_mat(A |+| B)
-mostrar_mat(A |-| B)
-mostrar_mat(A |*| B)
-mostrar_mat(trans(A))
-mostrar_mat(inv(A))
+sea B = inv(A)
 
-(* Matrices 3x3 *)
-sea C :: Mat = [[2.0, 1.0, 0.0], [1.0, 3.0, 1.0], [0.0, 1.0, 2.0]]
-
-mostrar_mat(trans(C))
-mostrar_mat(inv(C))
+mostrar_mat(B)
