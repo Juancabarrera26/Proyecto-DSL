@@ -1,0 +1,13 @@
+importar core
+importar linalg
+
+sea X :: Mat = [1,2,3,4]
+sea Y :: Mat = [2,4,5,4]
+
+sea modelo = linreg(X, Y)
+
+mostrar(modelo)
+
+sea y = predict(modelo, 6)
+
+mostrar(y)
