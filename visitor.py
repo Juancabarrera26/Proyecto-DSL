@@ -35,6 +35,7 @@ class EjecutorDeepLang(DeepLangVisitor):
                 'ln': lambda args: mat.logaritmo_natural(args[0]),
                 'linreg': lambda args: mat.regresion_lineal(args[0], args[1]),
                 'predict': lambda args: mat.predecir(args[0], args[1]),
+                'mse': lambda args: mat.mse(args[0], args[1], args[2]),
             },
             "linalg": {
                 'trans': lambda args: mx.transpuesta(args[0]),
@@ -73,14 +74,11 @@ class EjecutorDeepLang(DeepLangVisitor):
             if fn not in funciones:
                 raise RuntimeError(f"'{fn}' no existe en '{modulo}'")
 
-            if fn in self.entorno._tabla:
-                raise RuntimeError(f"Conflicto: '{fn}' ya existe")
-
             self.entorno.definir(fn, funciones[fn])
 
     # ACCESO MODULO (c.sen)
 
-    def visitAccesoModuloExpr(self, ctx):
+    def visitAccesoModulo(self, ctx):
         modulo = ctx.ID(0).getText()
         funcion = ctx.ID(1).getText()
 
@@ -93,6 +91,19 @@ class EjecutorDeepLang(DeepLangVisitor):
             raise RuntimeError(f"'{funcion}' no existe en '{modulo}'")
 
         return mod[funcion]
+        
+    # FUNCIONES USUARIO
+
+    def visitDefFuncion(self, ctx):
+        nombre = ctx.ID().getText()
+        params = [p.getText() for p in ctx.parametros().ID()]
+        cuerpo = ctx.expresion()
+
+        fn = FuncionUsuario(params, cuerpo, self.entorno)
+
+        self.entorno.definir(nombre, fn)
+
+        return fn
 
     # LLAMADAS
 
@@ -108,34 +119,32 @@ class EjecutorDeepLang(DeepLangVisitor):
 
         if isinstance(fn, FuncionUsuario):
             if len(args) != len(fn.parametros):
-                raise RuntimeError(
-                    f"Funcion espera {len(fn.parametros)} argumentos, "
-                    f"recibio {len(args)}"
-                )
+                raise RuntimeError("Numero incorrecto de argumentos")
 
             nuevo_env = fn.entorno_closure.nuevo_ambito()
+
             for p, v in zip(fn.parametros, args):
                 nuevo_env.definir(p, v)
 
             env_anterior = self.entorno
             self.entorno = nuevo_env
+
             resultado = self.visit(fn.cuerpo)
+
             self.entorno = env_anterior
             return resultado
 
         raise RuntimeError("No es una funcion")
-        
+
     # PROGRAMA
 
     def visitPrograma(self, ctx):
-        resultado = None
         for instr in ctx.instruccion():
-            resultado = self.visit(instr)
-        return resultado
+            self.visit(instr)
 
     def visitInstruccion(self, ctx):
         return self.visitChildren(ctx)
-        
+
     # DECLARACIONES
 
     def visitDeclaracion(self, ctx):
@@ -161,78 +170,16 @@ class EjecutorDeepLang(DeepLangVisitor):
             raise RuntimeError("Division por cero")
         return self.visit(ctx.expresionMult()) / divisor
 
-    def visitExpMod(self, ctx):
-        return self.visit(ctx.expresionMult()) % self.visit(ctx.expresionPot())
-
     def visitExpPot(self, ctx):
         return mat.potencia(
             self.visit(ctx.expresionUnaria()),
             self.visit(ctx.expresionPot())
         )
-
-    def visitExpNeg(self, ctx):
-        return -self.visit(ctx.expresionPrimaria())
-
-    def visitExpNo(self, ctx):
-        return not self.visit(ctx.expresionPrimaria())
-
-    # MATRICES
-
-    def visitExpMatSuma(self, ctx):
-        return mx.suma_mat(
-            self.visit(ctx.expresionAdd()),
-            self.visit(ctx.expresionMult())
-        )
-
-    def visitExpMatResta(self, ctx):
-        return mx.resta_mat(
-            self.visit(ctx.expresionAdd()),
-            self.visit(ctx.expresionMult())
-        )
-
-    def visitExpMatMult(self, ctx):
-        return mx.mult_mat(
-            self.visit(ctx.expresionMult()),
-            self.visit(ctx.expresionPot())
-        )
         
-    # COMPARACIONES
-
-    def visitExpComp(self, ctx):
-        izq = self.visit(ctx.expresionComp())
-        der = self.visit(ctx.expresionAdd())
-        op  = ctx.opComp().getText()
-
-        tabla = {
-            '==': lambda a, b: a == b,
-            '!=': lambda a, b: a != b,
-            '<' : lambda a, b: a <  b,
-            '>' : lambda a, b: a >  b,
-            '<=': lambda a, b: a <= b,
-            '>=': lambda a, b: a >= b,
-        }
-
-        return tabla[op](izq, der)
-
-    def visitExpOr(self, ctx):
-        return self.visit(ctx.expresion()) or self.visit(ctx.expresionAnd())
-
-    def visitExpAnd(self, ctx):
-        return self.visit(ctx.expresionAnd()) and self.visit(ctx.expresionComp())
-
     # LITERALES
 
     def visitLitNum(self, ctx):
         return float(ctx.NUM().getText())
-
-    def visitLitTexto(self, ctx):
-        return ctx.TEXTO().getText()[1:-1]
-
-    def visitLitVerdad(self, ctx):
-        return True
-
-    def visitLitFalso(self, ctx):
-        return False
 
     def visitVarId(self, ctx):
         return self.entorno.obtener(ctx.ID().getText())
@@ -245,15 +192,8 @@ class EjecutorDeepLang(DeepLangVisitor):
 
     def visitFila(self, ctx):
         return [self.visit(e) for e in ctx.expresion()]
+        
+    # UTIL
 
-    def visitExpAgrup(self, ctx):
-        return self.visit(ctx.expresion())
-
-    # FORMATO
-
-    def _fmt(self, valor):
-        if isinstance(valor, list):
-            return str(valor)
-        if isinstance(valor, float) and valor == int(valor):
-            return str(int(valor))
-        return str(valor)
+    def _fmt(self, v):
+        return str(v)
