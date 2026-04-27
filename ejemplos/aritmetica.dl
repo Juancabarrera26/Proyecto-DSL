@@ -1,0 +1,4 @@
+importar core
+
+sea x :: Num = 5 + 3 * 2
+mostrar(x)
